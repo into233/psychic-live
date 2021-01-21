@@ -1,0 +1,25 @@
+{
+  "name": "peerjs-test",
+  "version": "1.0.0",
+  "description": "test this web can use NAThole or not",
+  "main": "index.js",
+  "scripts": {
+    "test": "test",
+    "start": "concurrently --kill-others \"node src/index.js\" \"node src/wsapp.js\""
+  },
+  "author": "tion",
+  "license": "ISC",
+  "dependencies": {
+    "koa": "^2.13.1",
+    "koa-body": "^4.2.0",
+    "koa-router": "^10.0.0",
+    "koa-session-minimal": "^4.0.0",
+    "koa-static": "^5.0.0",
+    "uuid": "^8.3.2",
+    "winston": "^3.3.3",
+    "ws": "1.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^5.3.0"
+  }
+}

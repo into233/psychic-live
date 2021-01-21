@@ -1,0 +1,130 @@
+<html>
+
+<body>
+    <style>
+        #outgoing {
+            width: 600px;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+    </style>
+    <form>
+        <textarea id="incoming"></textarea>
+        <button type="submit">submit</button>
+    </form>
+    <pre id="outgoing"></pre>
+    <script src="../js/simple-peer.min.js"></script>
+
+    <script>
+
+        var ws = new WebSocket('ws://192.168.3.13:3000/test');
+
+        let myname = ('test' + Math.random()).substring(0, 10);
+
+        class Peer {
+            constructor(peername, initiator = true, offer) {
+                this.p = new SimplePeer({
+                    initiator,
+                    trickle: false
+                })
+                this.peername = peername
+                this.initRtcPeer();
+
+                if (offer && !initiator)
+                    this.p.signal(JSON.parse(offer))
+            }
+
+            handleoffer(msg) {
+                console.log(this.peername + ' handleoffer signal')
+                this.p.signal(JSON.parse(msg));
+            }
+
+            handleanswer(msg) {
+                console.log(this.peername + ' handleanswer signal')
+                this.p.signal(JSON.parse(msg));
+            }
+
+            initRtcPeer() {
+                let p = this.p;
+                p.on('error', err => console.log('error', err))
+
+                p.on('signal', data => {
+                    let mysignal = JSON.stringify(data)
+                    let name = this.peername;
+                    console.log(this.peername + ' signal ' + this.p.initiator)
+
+                    if (this.p.initiator)
+                        ws.send(`OFFER ${name} ${mysignal}`) 
+                    else
+                        ws.send(`ANSWER ${name} ${mysignal}`)
+                    console.log('SIGNAL', mysignal)
+                })
+
+                p.on('connect', () => {
+                    this.connected = true;
+                    console.log('CONNECT')
+                    p.send('whatever' + Math.random())
+                })
+
+                document.querySelector('form').addEventListener('submit', ev => {
+                    ev.preventDefault()
+                    if(this.connected)
+                        p.send(document.querySelector('#incoming').value)
+                })
+                p.on('data', data => {
+                    console.log('data: ' + data)
+                    document.getElementById('outgoing').textContent += data + '\n';
+                })
+            }
+
+        }
+
+
+        let peersMap = new Map;
+
+        let handlers = {
+            handleoffer: function (msg) {
+                let name = msg.substring(0, msg.indexOf(' '));
+                let offer = msg.substring(msg.indexOf(' ') + 1);
+                peersMap.set(name, new Peer(name, false, offer));
+                // setTimeout(() => {
+                //     peersMap.get(name).handleoffer(offer);
+                // }, 200);
+            },
+            handleanswer: function (msg) {
+                let name = msg.substring(0, msg.indexOf(' '));
+                let answer = msg.substring(msg.indexOf(' ') + 1);
+                let peer = peersMap.get(name);
+                setTimeout(() => {
+                    peer.handleanswer(answer)
+                    
+                }, 200);
+            },
+            handlelist: function (msg) {
+                let peerList = JSON.parse(msg);
+                for (let peername of peerList) {
+                    peersMap.set(peername, new Peer(peername))
+                }
+            }
+        }
+        // 响应onmessage事件:
+        ws.onmessage = (msg) => {
+            msg = msg.data
+            let hdlers = ['OFFER', 'ANSWER', 'LIST'];
+            for (let hdl of hdlers) {
+                if (msg.startsWith(hdl)) {
+                    handlers['handle' + hdl.toLowerCase()](msg.substring(hdl.length + 1))
+                    return;
+                }
+            }
+        };
+        ws.onopen = function() {
+            // 给服务器发送一个自己的名字:
+            ws.send(`NAME ${myname}`);
+        }
+
+
+    </script>
+</body>
+
+</html>
